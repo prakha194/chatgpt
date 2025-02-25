@@ -16,7 +16,11 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 CHANNEL_USERNAME = "@premiumlinkers"  # Your channel username
 
 # Initialize Gemini API
-genai.configure(api_key=GEMINI_API_KEY)
+try:
+    genai.configure(api_key=GEMINI_API_KEY)
+    logging.info("Gemini API initialized successfully.")
+except Exception as e:
+    logging.error(f"Failed to initialize Gemini API: {e}")
 
 # Logging
 logging.basicConfig(
