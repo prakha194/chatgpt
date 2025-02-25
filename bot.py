@@ -1,33 +1,29 @@
 import logging
-from telegram import Update, ChatMember, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, ChatMember
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
     filters,
     CallbackContext,
-    CallbackQueryHandler,
 )
-import openai  # For ChatGPT API
 import google.generativeai as genai  # For Gemini API
 import os  # For environment variables
 
 # Load environment variables
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 CHANNEL_USERNAME = "@premiumlinkers"  # Your channel username
 
-# Initialize APIs
-openai.api_key = OPENAI_API_KEY
-genai.configure(api_key=GEMINI_API_KEY)  # Initialize Gemini API
+# Initialize Gemini API
+genai.configure(api_key=GEMINI_API_KEY)
 
 # Logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-# Store user preferences
+# Store user membership status
 user_data = {}
 
 # Check if user is a member of the channel
@@ -47,24 +43,6 @@ async def start(update: Update, context: CallbackContext):
     else:
         await update.message.reply_text(f"Please join {CHANNEL_USERNAME} to use this bot.")
 
-# Choose AI command
-async def choose_ai(update: Update, context: CallbackContext):
-    keyboard = [
-        [InlineKeyboardButton("ChatGPT", callback_data="chatgpt")],
-        [InlineKeyboardButton("Gemini", callback_data="gemini")],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Choose an AI:", reply_markup=reply_markup)
-
-# Handle AI selection
-async def handle_ai_selection(update: Update, context: CallbackContext):
-    query = update.callback_query
-    user_id = query.from_user.id
-    ai_choice = query.data
-
-    user_data[user_id] = {"ai": ai_choice}
-    await query.edit_message_text(f"You have selected {ai_choice.capitalize()}.")
-
 # Handle messages
 async def handle_message(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
@@ -74,26 +52,16 @@ async def handle_message(update: Update, context: CallbackContext):
         await update.message.reply_text(f"Please join {CHANNEL_USERNAME} to use this bot.")
         return
 
-    # Check if AI is selected
-    if user_id not in user_data or "ai" not in user_data[user_id]:
-        await update.message.reply_text("Please choose an AI using /chooseai.")
-        return
-
     user_input = update.message.text
-    ai_choice = user_data[user_id]["ai"]
 
-    if ai_choice == "chatgpt":
-        # Call ChatGPT API
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": user_input}]
-        )
-        reply = response['choices'][0]['message']['content']
-    elif ai_choice == "gemini":
-        # Call Gemini API
+    # Call Gemini API
+    try:
         model = genai.GenerativeModel('gemini-pro')
         response = model.generate_content(user_input)
         reply = response.text
+    except Exception as e:
+        logging.error(f"Gemini API error: {e}")
+        reply = "Sorry, I couldn't generate a response. Please try again."
 
     await update.message.reply_text(reply)
 
@@ -115,8 +83,6 @@ if __name__ == "__main__":
 
     # Handlers
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("chooseai", choose_ai))
-    application.add_handler(CallbackQueryHandler(handle_ai_selection))
     application.add_handler(CommandHandler("setgroup", set_group))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
