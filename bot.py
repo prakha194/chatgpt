@@ -90,5 +90,6 @@ if __name__ == "__main__":
     application.add_handler(CommandHandler("setgroup", set_group))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    # Run the bot
+    # Run the bot with polling
+    logging.info("Bot started successfully with polling.")
     application.run_polling()
