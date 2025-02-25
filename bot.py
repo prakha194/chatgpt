@@ -9,15 +9,18 @@ from telegram.ext import (
     CallbackQueryHandler,
 )
 import openai  # For ChatGPT API
+import google.generativeai as genai  # For Gemini API
 import os  # For environment variables
 
 # Load environment variables
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 CHANNEL_USERNAME = "@premiumlinkers"  # Your channel username
 
 # Initialize APIs
 openai.api_key = OPENAI_API_KEY
+genai.configure(api_key=GEMINI_API_KEY)  # Initialize Gemini API
 
 # Logging
 logging.basicConfig(
@@ -87,8 +90,10 @@ async def handle_message(update: Update, context: CallbackContext):
         )
         reply = response['choices'][0]['message']['content']
     elif ai_choice == "gemini":
-        # Call Gemini API (if available)
-        reply = "Gemini API is not integrated yet."
+        # Call Gemini API
+        model = genai.GenerativeModel('gemini-pro')
+        response = model.generate_content(user_input)
+        reply = response.text
 
     await update.message.reply_text(reply)
 
