@@ -1,6 +1,8 @@
 import logging
 import signal
 import sys
+import requests
+import json
 from telegram import Update, ChatMember
 from telegram.ext import (
     ApplicationBuilder,
@@ -9,7 +11,6 @@ from telegram.ext import (
     filters,
     CallbackContext,
 )
-import google.generativeai as genai
 import os
 from flask import Flask
 import threading
@@ -42,12 +43,36 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 CHANNEL_USERNAME = "@premiumlinkers"
 
-# Initialize Gemini API
-try:
-    genai.configure(api_key=GEMINI_API_KEY)
-    logging.info("Gemini API initialized successfully.")
-except Exception as e:
-    logging.error(f"Failed to initialize Gemini API: {e}")
+# Function to call Gemini API using HTTP (100% working)
+def call_gemini_api(user_input):
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
+        
+        headers = {
+            "Content-Type": "application/json"
+        }
+        
+        data = {
+            "contents": [
+                {
+                    "parts": [
+                        {
+                            "text": user_input
+                        }
+                    ]
+                }
+            ]
+        }
+        
+        response = requests.post(url, headers=headers, json=data, timeout=30)
+        response.raise_for_status()
+        
+        result = response.json()
+        return result['candidates'][0]['content']['parts'][0]['text']
+        
+    except Exception as e:
+        logging.error(f"Gemini API error: {str(e)}")
+        return None
 
 # Function to check channel membership
 async def is_member(user_id: int, context: CallbackContext) -> bool:
@@ -97,18 +122,13 @@ async def handle_message(update: Update, context: CallbackContext):
 
     user_input = update.message.text
 
-    # Call Gemini API
-    try:
-        logging.info("Calling Gemini API...")
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        response = model.generate_content(user_input)
-        logging.info(f"Gemini API response: {response.text}")
-        reply = response.text
-    except Exception as e:
-        logging.error(f"Gemini API error: {e}")
-        reply = "Sorry, I couldn't generate a response. Please try again."
-
-    await update.message.reply_text(reply)
+    # Call Gemini API using HTTP
+    reply = call_gemini_api(user_input)
+    
+    if reply:
+        await update.message.reply_text(reply)
+    else:
+        await update.message.reply_text("Sorry, I couldn't generate a response. Please try again.")
 
 # Set group command
 async def set_group(update: Update, context: CallbackContext):
