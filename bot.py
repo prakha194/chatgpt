@@ -1,4 +1,6 @@
 import logging
+import signal
+import sys
 from telegram import Update, ChatMember
 from telegram.ext import (
     ApplicationBuilder,
@@ -11,6 +13,14 @@ import google.generativeai as genai
 import os
 from flask import Flask
 import threading
+
+# Handle graceful shutdown
+def signal_handler(signum, frame):
+    logging.info("Bot shutting down gracefully...")
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
 
 # Flask app to keep web service alive
 app = Flask(__name__)
@@ -90,7 +100,7 @@ async def handle_message(update: Update, context: CallbackContext):
     # Call Gemini API
     try:
         logging.info("Calling Gemini API...")
-        model = genai.GenerativeModel('gemini-2.5-flash')  # Updated to 2.5-flash
+        model = genai.GenerativeModel('gemini-2.5-flash')
         response = model.generate_content(user_input)
         logging.info(f"Gemini API response: {response.text}")
         reply = response.text
@@ -125,7 +135,6 @@ if __name__ == "__main__":
     logging.info("Starting bot...")
     try:
         # Start Flask server in a separate thread
-        import threading
         flask_thread = threading.Thread(target=run_flask)
         flask_thread.daemon = True
         flask_thread.start()
